@@ -3,3 +3,4 @@ pandas==2.3.1
 plotly==6.3.0
 openpyxl==3.1.5
 numpy==2.3.2
+Office365-REST-Python-Client

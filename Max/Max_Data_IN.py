@@ -1,25 +1,47 @@
 import pandas as pd
 import streamlit as st
-import os
+from office365.sharepoint.client_context import ClientContext
+from office365.runtime.auth.user_credential import UserCredential
+import io
 
-# Local synced OneDrive path
-folder_path = st.secrets["sharepoint"]["URL"]
-LOCAL_FILE_PATH= os.path.join(folder_path, "supplier_packing_list_out.xlsx")
+# SharePoint Configuration
+SHAREPOINT_SITE = "https://landmarkgroup.sharepoint.com/sites/STNApplication"
+SHAREPOINT_FILE_PATH = "/sites/STNApplication/Shared Documents/Jeddah Fashion/supplier_packing_list_out.xlsx"
+
 def load_data():
-    """Load Excel file from local OneDrive synced SharePoint folder."""
+    """Load Excel file from SharePoint using API."""
     try:
-        if not os.path.exists(LOCAL_FILE_PATH):
-            st.error(f"❌ File not found at: {LOCAL_FILE_PATH}")
-            return None
-
-        df = pd.read_excel(LOCAL_FILE_PATH)
+        # Get credentials from Streamlit secrets
+        username = st.secrets["sharepoint"]["username"]
+        password = st.secrets["sharepoint"]["password"]
+        
+        # Authenticate to SharePoint
+        ctx = ClientContext(SHAREPOINT_SITE).with_credentials(
+            UserCredential(username, password)
+        )
+        
+        # Download file from SharePoint
+        file = ctx.web.get_file_by_server_relative_url(SHAREPOINT_FILE_PATH)
+        
+        # Use BytesIO as the file object for download
+        download_file = io.BytesIO()
+        file.download(download_file).execute_query()
+        
+        # Reset position to beginning
+        download_file.seek(0)
+        
+        # Load into pandas
+        df = pd.read_excel(download_file)
         df.columns = df.columns.str.strip()
-        st.success("✅ Data loaded successfully from OneDrive!")
+        
+        st.success("✅ Data loaded successfully from SharePoint!")
         return df
-
+        
+    except KeyError:
+        st.error("❌ SharePoint credentials not found in secrets!")
+        return None
     except Exception as e:
-        st.error(f"❌ Failed to load data: {e}")
-        st.info("Check file path and that OneDrive is synced and running")
+        st.error(f"❌ Failed to load from SharePoint: {e}")
         return None
 
 def get_filtered_data(c_inv, main_df):
